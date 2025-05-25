@@ -76,7 +76,9 @@ export class OrganizationList extends LitElement {
       return;
     }
     try {
-      this.organizations = await fetchUserOrganizations(this.githubToken);
+      const orgs = await fetchUserOrganizations(this.githubToken);
+      // Sort organizations alphabetically by login
+      this.organizations = [...orgs].sort((a, b) => a.login.localeCompare(b.login));
       this.error = '';
     } catch (err) {
       this.organizations = [];
@@ -104,15 +106,17 @@ export class OrganizationList extends LitElement {
       return html`<div class="mdui-typo">No organizations found.</div>`;
     }
     return html`
-      <div class="list-container">
+      <ul class="mdui-list" style="padding:0; margin:0;">
         ${this.organizations.map(org => html`
-          <organization-list-item
-            .organization=${org}
-            .selected=${this.selectedOrg === org.login}
-            @org-selected=${this.handleOrgSelected}
-          ></organization-list-item>
+          <li>
+            <organization-list-item
+              .organization=${org}
+              .selected=${this.selectedOrg === org.login}
+              @org-selected=${this.handleOrgSelected}
+            ></organization-list-item>
+          </li>
         `)}
-      </div>
+      </ul>
     `;
   }
 

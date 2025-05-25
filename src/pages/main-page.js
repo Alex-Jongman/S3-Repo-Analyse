@@ -1,9 +1,45 @@
 // src/pages/main-page.js
 import { LitElement, html, css } from 'lit';
-import '../components/organization-list.js';
 import '../components/organization-repo-list.js';
-import '../components/pull-request-list.js';
-import 'mdui/components/icon.js';
+import '../components/organization-list.js';
+
+/**
+ * Header component for displaying the selected organization and repository.
+ *
+ * @element selection-header
+ * @property {String} org - The selected organization login.
+ * @property {String} repo - The selected repository name.
+ */
+class SelectionHeader extends LitElement {
+  static properties = {
+    org: { type: String },
+    repo: { type: String }
+  };
+  static styles = css`
+    .header {
+      font-size: 1.1rem;
+      font-weight: 500;
+      color: var(--mdui-color-primary, #1976d2);
+      margin-bottom: 12px;
+      margin-top: 8px;
+      letter-spacing: 0.01em;
+    }
+    .header b {
+      color: var(--mdui-color-primary, #1976d2);
+    }
+  `;
+  render() {
+    if (!this.org) return '';
+    return html`
+      <div class="header">
+        Organization: <b>${this.org}</b>
+        ${this.repo ? html` | Repository: <b>${this.repo}</b>` : ''}
+      </div>
+    `;
+  }
+  createRenderRoot() { return this; }
+}
+customElements.define('selection-header', SelectionHeader);
 
 /**
  * Main page component responsible for rendering the organization selection and repository list.
@@ -13,6 +49,7 @@ import 'mdui/components/icon.js';
 export class MainPage extends LitElement {
   static properties = {
     selectedOrg: { type: String },
+    selectedRepo: { type: String },
     githubToken: { type: String }
   };
 
@@ -69,6 +106,7 @@ export class MainPage extends LitElement {
   constructor() {
     super();
     this.selectedOrg = '';
+    this.selectedRepo = '';
     this.githubToken = import.meta.env.VITE_GITHUB_TOKEN || '';
   }
 
@@ -78,6 +116,15 @@ export class MainPage extends LitElement {
    */
   handleOrgSelected(event) {
     this.selectedOrg = event.detail.org;
+    this.selectedRepo = '';
+  }
+
+  /**
+   * Handles repository selection from the organization-repo-list component.
+   * @param {CustomEvent} event
+   */
+  handleRepoSelected(event) {
+    this.selectedRepo = event.detail.repo;
   }
 
   /**
@@ -96,10 +143,14 @@ export class MainPage extends LitElement {
           ></organization-list>
         </aside>
         <section>
+          <selection-header .org=${this.selectedOrg} .repo=${this.selectedRepo}></selection-header>
           <h2>Repositories</h2>
-          <organization-repo-list .org=${this.selectedOrg} .githubToken=${this.githubToken}></organization-repo-list>
-          <h2>Pull Requests</h2>
-          <pull-request-list .org=${this.selectedOrg} .githubToken=${this.githubToken}></pull-request-list>
+          <organization-repo-list
+            .org=${this.selectedOrg}
+            .githubToken=${this.githubToken}
+            .selectedRepo=${this.selectedRepo}
+            @repo-selected=${this.handleRepoSelected}
+          ></organization-repo-list>
         </section>
       </main>
     `;

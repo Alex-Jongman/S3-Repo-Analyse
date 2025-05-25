@@ -30,6 +30,14 @@ export class OrganizationRepoList extends LitElement {
       .mdui-typo {
         margin: 8px 0;
       }
+      .repo-list {
+        list-style: none;
+        padding: 0;
+        margin: 0 0 16px 0;
+      }
+      li {
+        margin-bottom: 2px;
+      }
       /* The following styles are for MDUI/third-party content only */
       .mdui-list-item {
         cursor: pointer;
@@ -96,7 +104,8 @@ export class OrganizationRepoList extends LitElement {
       return;
     }
     try {
-      this.repositories = await fetchOrganizationRepositories(this.org, this.githubToken);
+      const repos = await fetchOrganizationRepositories(this.org, this.githubToken);
+      this.repositories = [...repos].sort((a, b) => a.name.localeCompare(b.name));
       this.error = '';
     } catch (err) {
       this.repositories = [];
@@ -109,6 +118,11 @@ export class OrganizationRepoList extends LitElement {
    */
   handleRepoSelected(event) {
     this.selectedRepo = event.detail.repo;
+    this.dispatchEvent(new CustomEvent('repo-selected', {
+      detail: { repo: this.selectedRepo },
+      bubbles: true,
+      composed: true
+    }));
   }
 
   /**
@@ -126,9 +140,9 @@ export class OrganizationRepoList extends LitElement {
       return html`<div class="mdui-typo">No repositories found for this organization.</div>`;
     }
     return html`
-      <ul class="mdui-list">
+      <ul class="repo-list mdui-list">
         ${this.repositories.map(repo => html`
-          <li>
+          <li class="mdui-list-item${this.selectedRepo === repo.name ? ' selected' : ''}" style="padding:0;">
             <organization-repo-list-item
               .repository=${repo}
               .selected=${this.selectedRepo === repo.name}
