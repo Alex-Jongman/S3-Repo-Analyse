@@ -146,11 +146,6 @@ export class OrganizationRepoList extends LitElement {
           ></organization-repo-list-item>
         `)}
       </section>
-      <pull-request-list
-        .org=${this.org}
-        .repo=${this.selectedRepo}
-        .githubToken=${this.githubToken}
-      ></pull-request-list>
     `;
   }
 

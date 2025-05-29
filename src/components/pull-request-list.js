@@ -4,6 +4,7 @@ import { fetchRepositoryPullRequests } from '../services/github-pull-request-ser
 import Chart from 'chart.js/auto';
 import './pull-request-list-item.js';
 import './contributor-weekly-pr-chart.js';
+import './contributor-filetype-changes-chart.js';
 
 /**
  * Web component for displaying a list of pull requests for a repository.
@@ -19,7 +20,8 @@ export class PullRequestList extends LitElement {
     repo: { type: String },
     githubToken: { type: String },
     pullRequests: { type: Array },
-    error: { type: String }
+    error: { type: String },
+    selectedContributor: { type: String }
   };
 
   static styles = [
@@ -70,6 +72,7 @@ export class PullRequestList extends LitElement {
     this.githubToken = '';
     this.pullRequests = [];
     this.error = '';
+    this.selectedContributor = '';
   }
 
   /**
@@ -282,6 +285,36 @@ export class PullRequestList extends LitElement {
   }
 
   /**
+   * Returns a sorted array of unique contributor usernames from all PRs.
+   * @returns {string[]}
+   */
+  getContributors() {
+    const users = new Set(this.pullRequests.map(pr => pr.user?.login || 'unknown'));
+    return Array.from(users).sort();
+  }
+
+  /**
+   * Returns a map of { user: { ext: { additions, deletions, count } } } for all PRs by user.
+   * @returns {Object} { [user]: { [ext]: { additions, deletions, count } } }
+   */
+  getCombinedFileTypeStatsByUser() {
+    const stats = {};
+    for (const pr of this.pullRequests) {
+      const user = pr.user?.login || 'unknown';
+      if (!stats[user]) stats[user] = {};
+      if (pr.fileTypeStats) {
+        for (const ext of Object.keys(pr.fileTypeStats)) {
+          if (!stats[user][ext]) stats[user][ext] = { additions: 0, deletions: 0, count: 0 };
+          stats[user][ext].additions += pr.fileTypeStats[ext].additions;
+          stats[user][ext].deletions += pr.fileTypeStats[ext].deletions;
+          stats[user][ext].count += pr.fileTypeStats[ext].count;
+        }
+      }
+    }
+    return stats;
+  }
+
+  /**
    * Renders the list of pull requests.
    * @returns {import('lit').TemplateResult}
    */
@@ -298,44 +331,79 @@ export class PullRequestList extends LitElement {
     const grouped = this.getGroupedPRs();
     const closedCounts = this.getClosedPRCountsByUser();
     const prsByUserPerWeek = this.getPRsByUserPerWeek();
+    const contributors = this.getContributors();
+    const selected = this.selectedContributor;
+    const combinedFileTypeStatsByUser = this.getCombinedFileTypeStatsByUser();
     return html`
       <section class="mdui-list">
-        <h3 class="mdui-typo" style="margin-top:16px;">Open Pull Requests</h3>
-        ${Object.keys(grouped.open).length === 0 ? html`<div class="mdui-typo">None</div>` : ''}
-        ${Object.entries(grouped.open).map(([user, prs]) => html`
-          <div style="margin-bottom:12px;">
-            <div class="mdui-typo" style="font-weight:500; color:#1976d2; margin-bottom:4px;">${user}</div>
-            <ul class="mdui-list" style="margin:0;">
-              ${prs.map(pr => html`
-                <pull-request-list-item .pr=${pr} state="open"></pull-request-list-item>
-              `)}
-            </ul>
-            ${prsByUserPerWeek[user] && prsByUserPerWeek[user].length > 0 ? html`
-              <contributor-weekly-pr-chart
-                .weeklyData=${prsByUserPerWeek[user]}
-                .contributor=${user}
-              ></contributor-weekly-pr-chart>
-            ` : ''}
-          </div>
-        `)}
-        <h3 class="mdui-typo" style="margin-top:24px;">Closed Pull Requests</h3>
-        ${Object.keys(grouped.closed).length === 0 ? html`<div class="mdui-typo">None</div>` : ''}
-        ${Object.entries(grouped.closed).map(([user, prs]) => html`
-          <div style="margin-bottom:12px;">
-            <div class="mdui-typo" style="font-weight:500; color:#1976d2; margin-bottom:4px;">${user}</div>
-            <ul class="mdui-list" style="margin:0;">
-              ${prs.map(pr => html`
-                <pull-request-list-item .pr=${pr} state="closed"></pull-request-list-item>
-              `)}
-            </ul>
-            ${prsByUserPerWeek[user] && prsByUserPerWeek[user].length > 0 ? html`
-              <contributor-weekly-pr-chart
-                .weeklyData=${prsByUserPerWeek[user]}
-                .contributor=${user}
-              ></contributor-weekly-pr-chart>
-            ` : ''}
-          </div>
-        `)}
+        <div style="margin-bottom:16px;">
+          <label for="contributor-select" class="mdui-typo" style="font-weight:500;">Select Contributor:</label>
+          <select id="contributor-select" class="mdui-select" @change=${e => { this.selectedContributor = e.target.value; }}>
+            <option value="">-- All Contributors --</option>
+            ${contributors.map(user => html`<option value="${user}" ?selected=${selected === user}>${user}</option>`)}
+          </select>
+        </div>
+        ${selected
+          ? html`
+            <div style="margin-bottom:12px;">
+              <div class="mdui-typo" style="font-weight:500; color:#1976d2; margin-bottom:4px;">${selected}</div>
+              ${prsByUserPerWeek[selected] && prsByUserPerWeek[selected].length > 0 ? html`
+                <contributor-weekly-pr-chart
+                  .weeklyData=${prsByUserPerWeek[selected]}
+                  .contributor=${selected}
+                ></contributor-weekly-pr-chart>
+              ` : ''}
+              ${combinedFileTypeStatsByUser[selected] && Object.keys(combinedFileTypeStatsByUser[selected]).length > 0 ? html`
+                <contributor-filetype-changes-chart
+                  .fileTypeStats=${combinedFileTypeStatsByUser[selected]}
+                  .contributor=${selected}
+                ></contributor-filetype-changes-chart>
+              ` : ''}
+              <h4 class="mdui-typo" style="margin-top:8px;">Open Pull Requests</h4>
+              <ul class="mdui-list" style="margin:0;">
+                ${(grouped.open[selected] || []).map(pr => html`
+                  <pull-request-list-item .pr=${pr} state="open"></pull-request-list-item>
+                `)}
+              </ul>
+              <h4 class="mdui-typo" style="margin-top:16px;">Closed Pull Requests</h4>
+              <ul class="mdui-list" style="margin:0;">
+                ${(grouped.closed[selected] || []).map(pr => html`
+                  <pull-request-list-item .pr=${pr} state="closed"></pull-request-list-item>
+                `)}
+              </ul>
+            </div>
+          `
+          : html`
+            ${contributors.map(user => html`
+              <div style="margin-bottom:32px;">
+                <div class="mdui-typo" style="font-weight:500; color:#1976d2; margin-bottom:4px;">${user}</div>
+                ${prsByUserPerWeek[user] && prsByUserPerWeek[user].length > 0 ? html`
+                  <contributor-weekly-pr-chart
+                    .weeklyData=${prsByUserPerWeek[user]}
+                    .contributor=${user}
+                  ></contributor-weekly-pr-chart>
+                ` : ''}
+                ${combinedFileTypeStatsByUser[user] && Object.keys(combinedFileTypeStatsByUser[user]).length > 0 ? html`
+                  <contributor-filetype-changes-chart
+                    .fileTypeStats=${combinedFileTypeStatsByUser[user]}
+                    .contributor=${user}
+                  ></contributor-filetype-changes-chart>
+                ` : ''}
+                <h3 class="mdui-typo" style="margin-top:16px;">Open Pull Requests</h3>
+                <ul class="mdui-list" style="margin:0;">
+                  ${(grouped.open[user] || []).map(pr => html`
+                    <pull-request-list-item .pr=${pr} state="open"></pull-request-list-item>
+                  `)}
+                </ul>
+                <h3 class="mdui-typo" style="margin-top:16px;">Closed Pull Requests</h3>
+                <ul class="mdui-list" style="margin:0;">
+                  ${(grouped.closed[user] || []).map(pr => html`
+                    <pull-request-list-item .pr=${pr} state="closed"></pull-request-list-item>
+                  `)}
+                </ul>
+              </div>
+            `)}
+          `}
         <h4 class="mdui-typo" style="margin-top:32px;">Closed PRs by Initiator</h4>
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap:12px; margin-bottom:24px;">
           ${closedCounts.map(({ user, count }) => html`
