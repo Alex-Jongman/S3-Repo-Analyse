@@ -67,7 +67,18 @@ export class ContributorWeeklyPrChart extends LitElement {
         },
         scales: {
           x: { title: { display: true, text: 'Week' } },
-          y: { title: { display: true, text: 'Number of PRs' }, beginAtZero: true, precision: 0 }
+          y: {
+            title: { display: true, text: 'Number of PRs' },
+            beginAtZero: true,
+            precision: 0,
+            ticks: {
+              stepSize: 1,
+              callback: function(value) {
+                if (Number.isInteger(value)) return value;
+                return null;
+              }
+            }
+          }
         }
       }
     });
