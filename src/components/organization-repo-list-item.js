@@ -21,7 +21,8 @@ export class OrganizationRepoListItem extends LitElement {
         width: 100%;
       }
       .repo-row {
-        display: flex;
+        display: grid;
+        grid-template-areas: 'repo-name';
         align-items: center;
         gap: 10px;
         padding: 6px 12px;
@@ -46,7 +47,7 @@ export class OrganizationRepoListItem extends LitElement {
         color: var(--mdui-color-primary, #1976d2);
       }
       .repo-name {
-        flex: 1 1 0%;
+        grid-area: repo-name;
         min-width: 0;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -65,9 +66,9 @@ export class OrganizationRepoListItem extends LitElement {
 
   render() {
     return html`
-      <div class="repo-row" tabindex="0" role="button" aria-pressed="${this.selected}" @click="${this.handleClick}">
+      <section class="repo-row mdui-list-item" tabindex="0" role="button" aria-pressed="${this.selected}" @click="${this.handleClick}">
         <span class="repo-name">${this.repository.name}</span>
-      </div>
+      </section>
     `;
   }
 

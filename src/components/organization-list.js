@@ -1,5 +1,5 @@
 import { LitElement, html, css } from 'lit';
-import { fetchUserOrganizations } from '../services/github-organization-service.js';
+import { fetchAllUserOrganizations } from '../services/github-organization-service.js';
 import './organization-list-item.js';
 
 /**
@@ -76,7 +76,7 @@ export class OrganizationList extends LitElement {
       return;
     }
     try {
-      const orgs = await fetchUserOrganizations(this.githubToken);
+      const orgs = await fetchAllUserOrganizations(this.githubToken);
       // Sort organizations alphabetically by login
       this.organizations = [...orgs].sort((a, b) => a.login.localeCompare(b.login));
       this.error = '';

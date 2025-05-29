@@ -2,6 +2,7 @@
 import { LitElement, html, css } from 'lit';
 import '../components/organization-repo-list.js';
 import '../components/organization-list.js';
+import '../pages/repository-detail-page.js';
 
 /**
  * Header component for displaying the selected organization and repository.
@@ -50,7 +51,8 @@ export class MainPage extends LitElement {
   static properties = {
     selectedOrg: { type: String },
     selectedRepo: { type: String },
-    githubToken: { type: String }
+    githubToken: { type: String },
+    showRepoDetail: { type: Boolean }
   };
 
   static styles = css`
@@ -108,6 +110,7 @@ export class MainPage extends LitElement {
     this.selectedOrg = '';
     this.selectedRepo = '';
     this.githubToken = import.meta.env.VITE_GITHUB_TOKEN || '';
+    this.showRepoDetail = false;
   }
 
   /**
@@ -125,6 +128,11 @@ export class MainPage extends LitElement {
    */
   handleRepoSelected(event) {
     this.selectedRepo = event.detail.repo;
+    this.showRepoDetail = true;
+  }
+
+  handleBackFromDetail() {
+    this.showRepoDetail = false;
   }
 
   /**
@@ -132,6 +140,16 @@ export class MainPage extends LitElement {
    * @returns {import('lit').TemplateResult}
    */
   render() {
+    if (this.showRepoDetail && this.selectedOrg && this.selectedRepo) {
+      return html`
+        <repository-detail-page
+          .org=${this.selectedOrg}
+          .repo=${this.selectedRepo}
+          .githubToken=${this.githubToken}
+          .onBack=${this.handleBackFromDetail.bind(this)}
+        ></repository-detail-page>
+      `;
+    }
     return html`
       <main>
         <aside>

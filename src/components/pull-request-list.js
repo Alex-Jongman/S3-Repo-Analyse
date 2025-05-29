@@ -86,7 +86,8 @@ export class PullRequestList extends LitElement {
       return;
     }
     try {
-      this.pullRequests = await fetchRepositoryPullRequests(this.org, this.repo, this.githubToken);
+      // Fetch all pull requests, not just open ones
+      this.pullRequests = await fetchRepositoryPullRequests(this.org, this.repo, this.githubToken, { state: 'all' });
       this.error = '';
     } catch (err) {
       this.pullRequests = [];

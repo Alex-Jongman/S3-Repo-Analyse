@@ -1,5 +1,6 @@
 // src/components/organization-list-item.js
 import { LitElement, html, css } from 'lit';
+import 'mdui/components/icon.js';
 import '@mdui/icons/business.js';
 
 /**
@@ -72,6 +73,7 @@ export class OrganizationListItem extends LitElement {
   render() {
     return html`
       <div class="item-row" tabindex="0" role="button" aria-pressed="${this.selected}">
+        <!-- <mdui-icon name="business"></mdui-icon> -->
         <mdui-icon-business></mdui-icon-business>
         <span class="mdui-list-item-content">${this.organization.login}</span>
       </div>

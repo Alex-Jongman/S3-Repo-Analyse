@@ -35,9 +35,6 @@ export class OrganizationRepoList extends LitElement {
         padding: 0;
         margin: 0 0 16px 0;
       }
-      li {
-        margin-bottom: 2px;
-      }
       /* The following styles are for MDUI/third-party content only */
       .mdui-list-item {
         cursor: pointer;
@@ -140,17 +137,15 @@ export class OrganizationRepoList extends LitElement {
       return html`<div class="mdui-typo">No repositories found for this organization.</div>`;
     }
     return html`
-      <ul class="repo-list mdui-list">
+      <section class="repo-list mdui-list" style="display: grid; grid-template-areas: 'repo-list'; gap: 2px;">
         ${this.repositories.map(repo => html`
-          <li class="mdui-list-item${this.selectedRepo === repo.name ? ' selected' : ''}" style="padding:0;">
-            <organization-repo-list-item
-              .repository=${repo}
-              .selected=${this.selectedRepo === repo.name}
-              @repo-selected=${this.handleRepoSelected}
-            ></organization-repo-list-item>
-          </li>
+          <organization-repo-list-item
+            .repository=${repo}
+            .selected=${this.selectedRepo === repo.name}
+            @repo-selected=${this.handleRepoSelected}
+          ></organization-repo-list-item>
         `)}
-      </ul>
+      </section>
       <pull-request-list
         .org=${this.org}
         .repo=${this.selectedRepo}
