@@ -2,6 +2,8 @@
 import { LitElement, html, css } from 'lit';
 import { fetchRepositoryPullRequests } from '../services/github-pull-request-service.js';
 import Chart from 'chart.js/auto';
+import './pull-request-list-item.js';
+import './contributor-weekly-pr-chart.js';
 
 /**
  * Web component for displaying a list of pull requests for a repository.
@@ -141,6 +143,64 @@ export class PullRequestList extends LitElement {
   }
 
   /**
+   * Returns a map of { user: { week: YYYY-WW, count: number }[] } for PRs by week.
+   * All users start at the earliest week any PR was made, and missing weeks are filled with count 0.
+   * @returns {Object} { [user]: Array<{ week: string, count: number }> }
+   */
+  getPRsByUserPerWeek() {
+    const weekMap = {};
+    let minDate = null;
+    let maxDate = null;
+    // First, collect all weeks per user and find min/max date
+    for (const pr of this.pullRequests) {
+      const user = pr.user?.login || 'unknown';
+      const created = new Date(pr.created_at);
+      if (!minDate || created < minDate) minDate = created;
+      if (!maxDate || created > maxDate) maxDate = created;
+      const year = created.getUTCFullYear();
+      const week = this.getISOWeek(created);
+      const weekKey = `${year}-W${week.toString().padStart(2, '0')}`;
+      if (!weekMap[user]) weekMap[user] = {};
+      if (!weekMap[user][weekKey]) weekMap[user][weekKey] = 0;
+      weekMap[user][weekKey]++;
+    }
+    if (!minDate || !maxDate) return {};
+    // Build a list of all week keys from minDate to maxDate
+    const allWeeks = [];
+    let d = new Date(Date.UTC(minDate.getUTCFullYear(), minDate.getUTCMonth(), minDate.getUTCDate()));
+    // Move d to the Monday of its week
+    d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+    let lastWeekKey = null;
+    do {
+      const year = d.getUTCFullYear();
+      const week = this.getISOWeek(d);
+      const weekKey = `${year}-W${week.toString().padStart(2, '0')}`;
+      allWeeks.push(weekKey);
+      lastWeekKey = weekKey;
+      d.setUTCDate(d.getUTCDate() + 7);
+    } while (d <= maxDate || lastWeekKey !== `${maxDate.getUTCFullYear()}-W${this.getISOWeek(maxDate).toString().padStart(2, '0')}`);
+    // For each user, fill in missing weeks with count 0
+    const result = {};
+    for (const user of Object.keys(weekMap)) {
+      result[user] = allWeeks.map(week => ({ week, count: weekMap[user][week] || 0 }));
+    }
+    return result;
+  }
+
+  /**
+   * Returns ISO week number for a date (1-53).
+   * @param {Date} date
+   * @returns {number}
+   */
+  getISOWeek(date) {
+    const tmp = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+    const dayNum = tmp.getUTCDay() || 7;
+    tmp.setUTCDate(tmp.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(tmp.getUTCFullYear(),0,1));
+    return Math.ceil((((tmp - yearStart) / 86400000) + 1) / 7);
+  }
+
+  /**
    * Renders a Chart.js bar chart for file type changes in a PR.
    * @param {Object} fileTypeStats
    * @param {string} chartId
@@ -237,6 +297,7 @@ export class PullRequestList extends LitElement {
     }
     const grouped = this.getGroupedPRs();
     const closedCounts = this.getClosedPRCountsByUser();
+    const prsByUserPerWeek = this.getPRsByUserPerWeek();
     return html`
       <section class="mdui-list">
         <h3 class="mdui-typo" style="margin-top:16px;">Open Pull Requests</h3>
@@ -245,21 +306,16 @@ export class PullRequestList extends LitElement {
           <div style="margin-bottom:12px;">
             <div class="mdui-typo" style="font-weight:500; color:#1976d2; margin-bottom:4px;">${user}</div>
             <ul class="mdui-list" style="margin:0;">
-              ${prs.map(pr => {
-                const chartId = `chart-open-${pr.number}`;
-                return html`
-                  <li class="mdui-list-item">
-                    <span class="pr-title">${pr.title}</span>
-                    <span class="pr-user">#${pr.number}</span>
-                    ${pr.fileTypeStats && Object.keys(pr.fileTypeStats).length > 0 ? html`
-                      <div style="margin-top:8px;">
-                        ${this.renderFileTypeChart(pr.fileTypeStats, chartId)}
-                      </div>
-                    ` : ''}
-                  </li>
-                `;
-              })}
+              ${prs.map(pr => html`
+                <pull-request-list-item .pr=${pr} state="open"></pull-request-list-item>
+              `)}
             </ul>
+            ${prsByUserPerWeek[user] && prsByUserPerWeek[user].length > 0 ? html`
+              <contributor-weekly-pr-chart
+                .weeklyData=${prsByUserPerWeek[user]}
+                .contributor=${user}
+              ></contributor-weekly-pr-chart>
+            ` : ''}
           </div>
         `)}
         <h3 class="mdui-typo" style="margin-top:24px;">Closed Pull Requests</h3>
@@ -268,21 +324,16 @@ export class PullRequestList extends LitElement {
           <div style="margin-bottom:12px;">
             <div class="mdui-typo" style="font-weight:500; color:#1976d2; margin-bottom:4px;">${user}</div>
             <ul class="mdui-list" style="margin:0;">
-              ${prs.map(pr => {
-                const chartId = `chart-closed-${pr.number}`;
-                return html`
-                  <li class="mdui-list-item">
-                    <span class="pr-title">${pr.title}</span>
-                    <span class="pr-user">#${pr.number}</span>
-                    ${pr.fileTypeStats && Object.keys(pr.fileTypeStats).length > 0 ? html`
-                      <div style="margin-top:8px;">
-                        ${this.renderFileTypeChart(pr.fileTypeStats, chartId)}
-                      </div>
-                    ` : ''}
-                  </li>
-                `;
-              })}
+              ${prs.map(pr => html`
+                <pull-request-list-item .pr=${pr} state="closed"></pull-request-list-item>
+              `)}
             </ul>
+            ${prsByUserPerWeek[user] && prsByUserPerWeek[user].length > 0 ? html`
+              <contributor-weekly-pr-chart
+                .weeklyData=${prsByUserPerWeek[user]}
+                .contributor=${user}
+              ></contributor-weekly-pr-chart>
+            ` : ''}
           </div>
         `)}
         <h4 class="mdui-typo" style="margin-top:32px;">Closed PRs by Initiator</h4>
